@@ -86,17 +86,18 @@ class GenerativeAdversarialNet(object):
                 self.dis_W.append(W)
                 self.dis_b.append(b)
 
-    def _creat_model()
-        self.z = tf.placeholder([None, gen_shape[0]], name='z')
-        self.x = tf.placeholder([None, dis_shape[0], name='x')
+    def _creat_model(self):
+        self.z = tf.placeholder(tf.float32, [None, gen_shape[0]], name='z')
+
+        self.x = tf.placeholder(tf.float32, [None, dis_shape[0]], name='x')
 
         self.g = self._generator(self.z)
         self.D_x = self._discriminator(self.x)
         self.D_g = self._discriminator(self.g)
 
     def _display(self, display_num):
-    zs = np.random.uniform(-1., 1., size=[display_num, self.gen_shape[0]])
-    gs = self.sess.run(self.g, feed_dict={self.z:zs})
+        zs = np.random.uniform(-1., 1., size=[display_num, self.gen_shape[0]])
+        gs = self.sess.run(self.g, feed_dict={self.z:zs})
 
         fig, ax = plt.subplots(2, display_num)
         for fig_i in range(display_num):
@@ -112,13 +113,13 @@ class GenerativeAdversarialNet(object):
     def train(self):
         loss_dis = -tf.reduce_mean(tf.log(self.D_x) + tf.log(1 - self.D_g))
         loss_gen = -tf.reduce_mean(tf.log(self.D_g))
-        opt_dis = self._optimizer(loss_dis, var_list=dis_W+dis_b)
-        opt_gen = self._optimizer(loss_gen, var_list=gen_W+gen_b)
+        opt_dis = self._optimizer(loss_dis, var_list=self.dis_W+self.dis_b)
+        opt_gen = self._optimizer(loss_gen, var_list=self.gen_W+self.gen_b)
 
         init = tf.global_variables_initializer()
 
         self.sess = tf.Session()
-        sess.run(init)
+        self.sess.run(init)
         
         disp_step_num = int(self.step_num / 20)
         dispay_num = 10
@@ -130,7 +131,11 @@ class GenerativeAdversarialNet(object):
             _, l_gen = self.sess.run([opt_gen, loss_gen], feed_dict={self.x:xs})
 
             if step % disp_step_num == 0:
-            print('Step:', '%d'%(step+1), 'loss_dis =', '{:.9f}'.format(l_dis), 'loss_gen = ', '{:.9f}'.format(l_gen))
+                print(
+                    'Step:', '%d'%(step+1), 
+                    'loss_dis =', '{:.9f}'.format(l_dis), 
+                    'loss_gen = ', '{:.9f}'.format(l_gen)
+                )
 
         self._display(display_num)
         self.sess.close()
@@ -155,6 +160,7 @@ if __name__ == '__main__':
         data_length=28,
         data=data
     )
+    ae.train()
 
 
 
