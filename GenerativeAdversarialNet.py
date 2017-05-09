@@ -30,7 +30,6 @@ class GenerativeAdversarialNet(object):
         self.dis_W = []
         self.dis_b = []
 
-        self._creat_vars()
         self._creat_model()
 
     def _optimizer(self, loss, var_list):
@@ -88,8 +87,8 @@ class GenerativeAdversarialNet(object):
 
     def _creat_model(self):
         self.z = tf.placeholder(tf.float32, [None, gen_shape[0]], name='z')
-
         self.x = tf.placeholder(tf.float32, [None, dis_shape[0]], name='x')
+        self._creat_vars()
 
         self.g = self._generator(self.z)
         self.D_x = self._discriminator(self.x)
