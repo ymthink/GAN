@@ -44,7 +44,7 @@ class GenerativeAdversarialNet(object):
             decay,
             staircase=True
         )
-        opt = tf.train.RMSPropOptimizer(learning_rate).minimize(loss, global_step=batch, var_list=var_list)
+        opt = tf.train.AdamOptimizer(learning_rate).minimize(loss, global_step=batch, var_list=var_list)
         return opt
 
     def _generator(self, z):
@@ -122,13 +122,13 @@ class GenerativeAdversarialNet(object):
         self.sess.run(init)
         
         disp_step_num = int(self.step_num / 20)
-        dispay_num = 10
+        display_num = 10
 
         for step in range(self.step_num):
             xs, ys = self.data.train.next_batch(batch_size)
             zs = np.random.uniform(-1., 1., size=[batch_size, self.gen_shape[0]])
             _, l_dis = self.sess.run([opt_dis, loss_dis], feed_dict={self.z:zs, self.x:xs})
-            _, l_gen = self.sess.run([opt_gen, loss_gen], feed_dict={self.x:xs})
+            _, l_gen = self.sess.run([opt_gen, loss_gen], feed_dict={self.z:zs})
 
             if step % disp_step_num == 0:
                 print(
@@ -144,8 +144,8 @@ if __name__ == '__main__':
     from tensorflow.examples.tutorials.mnist import input_data
     data = input_data.read_data_sets("MNIST_data", one_hot=True)
 
-    learning_rate = 0.001
-    step_num = 20000
+    learning_rate = 0.0008
+    step_num = 200000
     batch_size = 256
     gen_shape = [100, 256, 784]
     dis_shape = [784, 256, 1]
