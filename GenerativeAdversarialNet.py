@@ -35,17 +35,18 @@ class GenerativeAdversarialNet(object):
         self._creat_model()
 
     def _optimizer(self, loss, var_list):
-        decay = 0.96
-        decay_step_num = self.batch_size // 5
-        batch = tf.Variable(0)
-        learning_rate = tf.train.exponential_decay(
-            self.learning_rate,
-            batch,
-            decay_step_num,
-            decay,
-            staircase=True
-        )
-        opt = tf.train.AdamOptimizer(learning_rate).minimize(loss, global_step=batch, var_list=var_list)
+        #decay = 0.96
+        #decay_step_num = self.batch_size // 5
+        #batch = tf.Variable(0)
+        #learning_rate = tf.train.exponential_decay(
+        #    self.learning_rate,
+        #    batch,
+        #    decay_step_num,
+        #    decay,
+        #    staircase=True
+        #)
+        #opt = tf.train.AdamOptimizer(learning_rate).minimize(loss, global_step=batch, var_list=var_list)
+        opt = tf.train.AdamOptimizer(self.learning_rate).minimize(loss, var_list=var_list)
         return opt
 
     def _generator(self, z):
@@ -127,7 +128,7 @@ class GenerativeAdversarialNet(object):
         self.sess = tf.Session()
         self.sess.run(init)
         
-        disp_step_num = 5000
+        disp_step_num = 2000
         display_num = 10
 
         if not os.path.exists('out/'):
@@ -140,11 +141,12 @@ class GenerativeAdversarialNet(object):
             _, l_dis = self.sess.run([opt_dis, loss_dis], feed_dict={self.z:zs, self.x:xs})
             _, l_gen = self.sess.run([opt_gen, loss_gen], feed_dict={self.z:zs})
 
-            if step % disp_step_num == 0:
+            if step % 200 == 0:
                 print(
                         'Step: {}, loss_dis = {:.5}, loss_gen = {:.5}'
                         .format(step, l_dis, l_gen)
                 )
+            if step % disp_step_num == 0:
                 fig = self._display()
                 plt.savefig('out/{}.png'.format(str(fig_i).zfill(3)), bbox_inches='tight')
                 fig_i += 1
@@ -156,9 +158,9 @@ if __name__ == '__main__':
     from tensorflow.examples.tutorials.mnist import input_data
     data = input_data.read_data_sets("MNIST_data", one_hot=True)
 
-    learning_rate = 0.002
+    learning_rate = 0.0002
     step_num = 100000
-    batch_size = 256
+    batch_size = 32
     gen_shape = [10, 128, 784]
     dis_shape = [784, 128, 1]
 
