@@ -11,6 +11,8 @@ Date:May,8,2017
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+import os
 
 class GenerativeAdversarialNet(object):
     
@@ -48,16 +50,18 @@ class GenerativeAdversarialNet(object):
 
     def _generator(self, z):
         current_input = z
-        for i in range(len(self.gen_W)):
-            current_output = tf.nn.sigmoid(tf.matmul(current_input, self.gen_W[i]) + self.gen_b[i])
+        for i in range(len(self.gen_W)-1):
+            current_output = tf.nn.relu(tf.matmul(current_input, self.gen_W[i]) + self.gen_b[i])
             current_input = current_output
+        current_output = tf.nn.sigmoid(tf.matmul(current_input, self.gen_W[len(self.gen_W)-1]) + self.gen_b[len(self.gen_W)-1])
         return current_output
 
     def _discriminator(self, x):
         current_input = x
-        for i in range(len(self.dis_W)):
-            current_output = tf.nn.sigmoid(tf.matmul(current_input, self.dis_W[i]) + self.dis_b[i])
+        for i in range(len(self.dis_W)-1):
+            current_output = tf.nn.relu(tf.matmul(current_input, self.dis_W[i]) + self.dis_b[i])
             current_input = current_output
+        current_output = tf.nn.sigmoid(tf.matmul(current_input, self.dis_W[len(self.dis_W)-1]) + self.dis_b[len(self.dis_b)-1])
         return current_output
 
     def _creat_vars(self):
@@ -66,8 +70,9 @@ class GenerativeAdversarialNet(object):
         #Generator
         with tf.variable_scope('Generator'):
             for gen_i in range(gen_len-1):
+                stddev = 1. / tf.sqrt(gen_shape[gen_i] / 2.)
                 W = tf.Variable(
-                    tf.random_normal([gen_shape[gen_i], gen_shape[gen_i+1]]), 
+                    tf.random_normal([gen_shape[gen_i], gen_shape[gen_i+1]], stddev=stddev),
                     name='W'+str(gen_i)
                 )
                 b = tf.Variable(tf.zeros([gen_shape[gen_i+1]]), name='b'+str(gen_i))
@@ -77,8 +82,9 @@ class GenerativeAdversarialNet(object):
         #Discriminator
         with tf.variable_scope('Discriminator'):
             for dis_i in range(dis_len-1):
+                stddev = 1. / tf.sqrt(gen_shape[dis_i] / 2.)
                 W = tf.Variable(
-                    tf.random_normal([dis_shape[dis_i], dis_shape[dis_i+1]]), 
+                    tf.random_normal([dis_shape[dis_i], dis_shape[dis_i+1]], stddev=stddev), 
                     name='W'+str(dis_i)
                 )
                 b = tf.Variable(tf.zeros([dis_shape[dis_i+1]]), name='b'+str(dis_i))
@@ -94,20 +100,21 @@ class GenerativeAdversarialNet(object):
         self.D_x = self._discriminator(self.x)
         self.D_g = self._discriminator(self.g)
 
-    def _display(self, display_num):
-        zs = np.random.uniform(-1., 1., size=[display_num, self.gen_shape[0]])
+    def _display(self):
+        zs = np.random.uniform(-1., 1., size=[16, self.gen_shape[0]])
         gs = self.sess.run(self.g, feed_dict={self.z:zs})
 
-        fig, ax = plt.subplots(2, display_num)
-        for fig_i in range(display_num):
-            ax[0][fig_i].imshow(np.reshape(data.test.images[fig_i], (self.data_length, self.data_width)))
-            ax[0][fig_i].set_xticks([])
-            ax[0][fig_i].set_yticks([])
-
-            ax[1][fig_i].imshow(np.reshape(gs[fig_i], (self.data_length, self.data_width)))
-            ax[1][fig_i].set_xticks([])
-            ax[1][fig_i].set_yticks([])
-        plt.show()
+        fig = plt.figure(figsize=(4,4))
+        graph = gridspec.GridSpec(4, 4)
+        graph.update(wspace=0.05, hspace=0.05)
+        for i, sample in enumerate(gs):
+            ax = plt.subplot(graph[i])
+            plt.axis('off')
+            ax.set_xticklabels([])
+            ax.set_yticklabels([])
+            ax.set_aspect('equal')
+            plt.imshow(sample.reshape(28, 28), cmap='Greys_r')
+        return fig
 
     def train(self):
         loss_dis = -tf.reduce_mean(tf.log(self.D_x) + tf.log(1 - self.D_g))
@@ -120,8 +127,12 @@ class GenerativeAdversarialNet(object):
         self.sess = tf.Session()
         self.sess.run(init)
         
-        disp_step_num = int(self.step_num / 20)
+        disp_step_num = 5000
         display_num = 10
+
+        if not os.path.exists('out/'):
+            os.makedirs('out/')
+        fig_i = 0
 
         for step in range(self.step_num):
             xs, ys = self.data.train.next_batch(batch_size)
@@ -131,23 +142,25 @@ class GenerativeAdversarialNet(object):
 
             if step % disp_step_num == 0:
                 print(
-                    'Step:', '%d'%(step+1), 
-                    'loss_dis =', '{:.9f}'.format(l_dis), 
-                    'loss_gen = ', '{:.9f}'.format(l_gen)
+                        'Step: {}, loss_dis = {:.5}, loss_gen = {:.5}'
+                        .format(step, l_dis, l_gen)
                 )
+                fig = self._display()
+                plt.savefig('out/{}.png'.format(str(fig_i).zfill(3)), bbox_inches='tight')
+                fig_i += 1
+                plt.close(fig)
 
-        self._display(display_num)
         self.sess.close()
 
 if __name__ == '__main__':
     from tensorflow.examples.tutorials.mnist import input_data
     data = input_data.read_data_sets("MNIST_data", one_hot=True)
 
-    learning_rate = 0.0008
-    step_num = 200000
+    learning_rate = 0.002
+    step_num = 100000
     batch_size = 256
-    gen_shape = [100, 256, 784]
-    dis_shape = [784, 256, 1]
+    gen_shape = [10, 128, 784]
+    dis_shape = [784, 128, 1]
 
     ae = GenerativeAdversarialNet(
         gen_shape=gen_shape,

@@ -4,10 +4,6 @@ import matplotlib.pyplot as plt
 from scipy.stats import norm
 
 mu,sigma=-1,1
-xs=np.linspace(-5,5,1000)
-#plt.plot(xs, norm.pdf(xs,loc=mu,scale=sigma))
-#plt.savefig('fig0.png')
-
 TRAIN_ITERS=20000
 M=200 # minibatch size
 
@@ -35,47 +31,20 @@ def momentum_optimizer(loss,var_list):
         TRAIN_ITERS // 4,          # Decay step - this decays 4 times throughout training process.
         0.95,                # Decay rate.
         staircase=True)
-    #optimizer=tf.train.GradientDescentOptimizer(learning_rate).minimize(loss,global_step=batch,var_list=var_list)
     optimizer=tf.train.MomentumOptimizer(learning_rate,0.6).minimize(loss,global_step=batch,var_list=var_list)
     return optimizer
-
-
-# plot decision surface
-#def plot_d0(D,input_node):
-#    f,ax=plt.subplots(1)
-#    # p_data
-#    xs=np.linspace(-5,5,1000)
-#    ax.plot(xs, norm.pdf(xs,loc=mu,scale=sigma), label='p_data')
-#    # decision boundary
-#    r=1000 # resolution (number of points)
-#    xs=np.linspace(-5,5,r)
-#    ds=np.zeros((r,1)) # decision surface
-#    # process multiple points in parallel in a minibatch
-#    #for i in range((int)(r/M)):
-#    #    x=np.reshape(xs[M*i:M*(i+1)],(M,1))
-#    #    ds[M*i:M*(i+1)]=sess.run(D,{input_node: x})
-#    x=np.reshape(xs,(r,1))
-#    ds=sess.run(D,{input_node:x})
-#
-#    ax.plot(xs, ds, label='decision boundary')
-#    ax.set_ylim(0,1.1)
-#    plt.legend()
 
 def plot_fig():
     # plots pg, pdata, decision boundary 
     f,ax=plt.subplots(1)
     # p_data
     xs=np.linspace(-5,5,1000)
-    ax.plot(xs, norm.pdf(xs,loc=mu,scale=sigma), label='p_data')
+    ax.plot(xs, norm.pdf(xs,loc=mu,scale=sigma), label='$p_{data}$')
 
     # decision boundary
     r=5000 # resolution (number of points)
     xs=np.linspace(-5,5,r)
     ds=np.zeros((r,1)) # decision surface
-    # process multiple points in parallel in same minibatch
-    #for i in range(int(r/M)):
-    #    x=np.reshape(xs[M*i:M*(i+1)],(M,1))
-    #    ds[M*i:M*(i+1)]=sess.run(D1,{x_node: x})
     x=np.reshape(xs, (r,1))
     ds=sess.run(D1,{x_node:x})
 
@@ -84,22 +53,15 @@ def plot_fig():
     # distribution of inverse-mapped points
     zs=np.linspace(-5,5,r)
     gs=np.zeros((r,1)) # generator function
-    #for i in range((int)(r/M)):
-    #    z=np.reshape(zs[M*i:M*(i+1)],(M,1))
-    #    gs[M*i:M*(i+1)]=sess.run(G,{z_node: z})
     z=np.reshape(zs,(r,1))
     gs=sess.run(G,{z_node:z})
     histc, edges = np.histogram(gs, bins = 10)
-    ax.plot(np.linspace(-5,5,10), histc/float(r), label='p_g')
+    ax.plot(np.linspace(-5,5,10), histc/float(r), label='$p_{g}$')
 
     # ylim, legend
     ax.set_ylim(0,1.1)
     plt.legend()
 
-#with tf.variable_scope("D_pre"):
-#    input_node=tf.placeholder(tf.float32, shape=(None,1))
-#    train_labels=tf.placeholder(tf.float32,shape=(None,1))
-#    D,theta=mlp(input_node,1)
 with tf.variable_scope("G"):
     z_node=tf.placeholder(tf.float32, shape=(None,1)) # M uniform01 floats
     G,theta_g=mlp(z_node,1) # generate normal transformation of Z
@@ -114,8 +76,8 @@ with tf.variable_scope("D") as scope:
     scope.reuse_variables()
     fc,theta_d=mlp(G,1)
     D2=tf.maximum(tf.minimum(fc,.99), 0.01)
-obj_d=tf.reduce_mean(tf.log(D1)+tf.log(1-D2))
 
+obj_d=tf.reduce_mean(tf.log(D1)+tf.log(1-D2))
 obj_g=tf.reduce_mean(tf.log(D2))
 loss=tf.reduce_mean(tf.square(D1-train_labels))
 
@@ -126,10 +88,8 @@ optimizer=momentum_optimizer(loss,None)
 
 sess=tf.InteractiveSession()
 tf.global_variables_initializer().run()
-#plot_d0(D,input_node)
 plot_fig()
 plt.title('Initial Decision Boundary')
-#plt.savefig('fig1.png')
 plt.show()
 
 lh=np.zeros(2000)
@@ -142,29 +102,8 @@ for i in range(2000):
 # training loss
 plt.plot(lh)
 plt.title('Training Loss')
-#plot_d0(D,input_node)
 plot_fig()
-#plt.savefig('fig2.png')
 plt.show()
-
-# copy the learned weights over into a tmp array
-#weightsD=sess.run(theta)
-
-# close the pre-training session
-#sess.close()
-
-#sess=tf.InteractiveSession()
-#tf.global_variables_initializer().run()
-
-# copy weights from pre-training over to new D network
-#for i,v in enumerate(theta_d):
-#    sess.run(v.assign(weightsD[i]))
-
-# initial conditions
-#plot_fig()
-#plt.title('Before Training')
-##plt.savefig('fig3.png')
-#plt.show()
 
 # Algorithm 1 of Goodfellow et al 2014
 k=1
@@ -183,9 +122,7 @@ for i in range(TRAIN_ITERS):
 plt.plot(range(TRAIN_ITERS),histd, label='obj_d')
 plt.plot(range(TRAIN_ITERS), 1-histg, label='obj_g')
 plt.legend()
-#plt.savefig('fig4.png')
 plt.show()
 
 plot_fig()
-#plt.savefig('fig5.png')
 plt.show()
