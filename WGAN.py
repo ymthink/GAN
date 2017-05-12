@@ -1,11 +1,11 @@
 # -*- coding:utf-8 -*-
 """
-A generative adverarial net class example.
+A wasserstain generative adverarial net class example.
 Use MNIST set as samples.
 
 Author:ymthink
 E-mail:yinmiaothink@gmail.com
-Date:May,8,2017
+Date:May,12,2017
 """
 
 import numpy as np
