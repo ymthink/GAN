@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import os
 
-class GenerativeAdversarialNet(object):
+class WGAN(object):
     
     def __init__(self, gen_shape, dis_shape, batch_size, 
         step_num, learning_rate, data_width, data_length, data):
@@ -174,7 +174,7 @@ if __name__ == '__main__':
     gen_shape = [10, 128, 784]
     dis_shape = [784, 128, 1]
 
-    ae = GenerativeAdversarialNet(
+    ae = WGAN(
         gen_shape=gen_shape,
         dis_shape=dis_shape,
         batch_size=batch_size,
