@@ -32,8 +32,8 @@ def he_init(size, stride):
     output_dim = size[3]
     filter_size = size[0]
 
-    fan_in = input_dim * filter_size**2 / (stride**2)
-    fan_out = output_dim * filter_size**2
+    fan_in = input_dim * filter_size**2
+    fan_out = output_dim * filter_size**2 / (stride**2)
     stddev = tf.sqrt(4. / (fan_in + fan_out))
     minval = -stddev * np.sqrt(3)
     maxval = stddev * np.sqrt(3)
