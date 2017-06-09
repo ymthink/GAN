@@ -34,20 +34,6 @@ class WGAN(object):
 
         self._creat_model()
 
-    def _optimizer(self, loss, var_list):
-        #decay = 0.96
-        #decay_step_num = self.batch_size // 5
-        #batch = tf.Variable(0)
-        #learning_rate = tf.train.exponential_decay(
-        #    self.learning_rate,
-        #    batch,
-        #    decay_step_num,
-        #    decay,
-        #    staircase=True
-        #)
-        #opt = tf.train.RMSPropOptimizer(learning_rate).minimize(loss, global_step=batch, var_list=var_list)
-        opt = tf.train.RMSPropOptimizer(self.learning_rate).minimize(loss, global_step=batch, var_list=var_list)
-        return opt
 
     def _generator(self, z):
         current_input = z
@@ -71,8 +57,8 @@ class WGAN(object):
         return tf.random_normal(shape=size, stddev=stddev)
 
     def _creat_vars(self):
-        gen_len = len(gen_shape)
-        dis_len = len(dis_shape)
+        gen_len = len(self.gen_shape)
+        dis_len = len(self.dis_shape)
         #Generator
         with tf.variable_scope('Generator'):
             for gen_i in range(gen_len-1):
@@ -96,8 +82,8 @@ class WGAN(object):
                 self.dis_b.append(b)
 
     def _creat_model(self):
-        self.z = tf.placeholder(tf.float32, [None, gen_shape[0]], name='z')
-        self.x = tf.placeholder(tf.float32, [None, dis_shape[0]], name='x')
+        self.z = tf.placeholder(tf.float32, [None, self.gen_shape[0]], name='z')
+        self.x = tf.placeholder(tf.float32, [None, self.dis_shape[0]], name='x')
         self._creat_vars()
 
         self.g = self._generator(self.z)
@@ -123,10 +109,14 @@ class WGAN(object):
         return np.random.uniform(-1., 1., size=[m,n])
 
     def train(self):
+        params_dis = self.dis_W + self.dis_b
+        params_gen = self.gen_W + self.gen_b
+
         loss_dis = -tf.reduce_mean(self.D_real) + tf.reduce_mean(self.D_fake)
         loss_gen = -tf.reduce_mean(self.D_fake)
-        opt_dis = self._optimizer(loss_dis, var_list=self.dis_W+self.dis_b)
-        opt_gen = self._optimizer(loss_gen, var_list=self.gen_W+self.gen_b)
+
+        opt_dis = tf.train.RMSPropOptimizer(self.learning_rate).minimize(loss_dis, var_list=params_dis)
+        opt_gen = tf.train.RMSPropOptimizer(self.learning_rate).minimize(loss_gen, var_list=params_gen)
 
         clip_dis = [p.assign(tf.clip_by_value(p, -0.01, 0.01)) for p in (self.dis_W+self.dis_b)]
 
