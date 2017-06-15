@@ -41,11 +41,12 @@ class Network(object):
         self.weights = []
         self.biases = []
 
-    def _conv2d(self, input, output_dim, filter_size, stride, padding='SAME'):
+    def conv2d(self, input, output_dim, filter_size, stride, padding='SAME'):
         with tf.variable_scope('conv'+str(self.layer_num)):
+            input_dim = input.get_shape().as_list()[3]
             input_shape = tf.shape(input)
 
-            init_w = he_init([filter_size, filter_size, input_shape[3], output_dim], stride)
+            init_w = he_init([filter_size, filter_size, input_dim, output_dim], stride)
             weight = tf.get_variable(
                 'weight', 
                 initializer=init_w
@@ -69,11 +70,12 @@ class Network(object):
             self.biases.append(bias)
 
         return output
-    def _deconv2d(self, input, output_dim, filter_size, stride, padding='SAME'):
+    def deconv2d(self, input, output_dim, filter_size, stride, padding='SAME'):
         with tf.variable_scope('deconv'+str(self.layer_num)):
+            input_dim = input.get_shape().as_list()[3]
             input_shape = tf.shape(input)
 
-            init_w = he_init([filter_size, filter_size, output_dim, input_shape[3]], stride)
+            init_w = he_init([filter_size, filter_size, output_dim, input_dim], stride)
             weight = tf.get_variable(
                 'weight',
                 initializer=init_w
@@ -92,8 +94,8 @@ class Network(object):
                     input_shape[0], 
                     input_shape[1]*stride, 
                     input_shape[2]*stride, 
-                    output_dim
-                ]),
+                    output_dim]
+                ),
                 strides=[1, stride, stride, 1],
                 padding=padding
             ), bias)
@@ -104,20 +106,14 @@ class Network(object):
 
         return output
 
-    def _upscale(self, input):
-        input_shape = tf.shape(input)
-        output = tf.image_resize_nearest_neighbor(input, [2 * s for s in input_shape[1:3]])
-
-        return output
-
-    def _batch_norm(self, input, scale=False):
+    def batch_norm(self, input, scale=False):
         ''' batch normalization
         ArXiv 1502.03167v3 '''
 
         output = tf.contrib.layers.batch_norm(input, scale=scale)
         return output
 
-    def _dense(self, input, output_dim):
+    def dense(self, input, output_dim):
         with tf.variable_scope('dense'+str(self.layer_num)):
             input_shape = tf.shape(input)
 
@@ -135,26 +131,26 @@ class Network(object):
 
         return output
 
-    def _residual_block(self, input, output_dim, filter_size, n_blocks=5):
+    def residual_block(self, input, output_dim, filter_size, n_blocks=5):
         output = input
         with tf.variable_scope('residual_block'):
             for i in range(n_blocks):
                 bypass = output
-                output = self._deconv2d(output, output_dim, filter_size, 1)
-                output = self._batch_norm(output)
+                output = self.deconv2d(output, output_dim, filter_size, 1)
+                output = self.batch_norm(output)
                 output = tf.nn.relu(output)
 
-                output = self._deconv2d(output, output_dim, filter_size, 1)
-                output = self._batch_norm(output)
+                output = self.deconv2d(output, output_dim, filter_size, 1)
+                output = self.batch_norm(output)
                 output = tf.add(output, bypass)
 
         return output
 
-    def pixel_shuffle(x, r, n_split):
+    def pixel_shuffle(self, x, r, n_split):
         def PS(x, r):
             bs, a, b, c = x.get_shape().as_list()
-            x = tf.reshape(x, (bs, a, b, r, r))
-            x = tf.transpose(x, (0, 1, 2, 4, 3))
+            x = tf.reshape(x, [bs, a, b, r, r])
+            x = tf.transpose(x, [0, 1, 2, 4, 3])
             x = tf.split(x, a, 1)
             x = tf.concat([tf.squeeze(x_) for x_ in x], 2)
             x = tf.split(x, b, 1)
@@ -166,93 +162,83 @@ class Network(object):
 
 
 class SRGAN(object):
-    def __init__(self, batch_size, learning_rate, LAMBDA, SIGMA):
-        self.batch_size = batch_size
-        self.learning_rate = learning_rate
-        self.vgg = VGG19(None, None, None)
+    def __init__(self, height, width, channel_num, LAMBDA, SIGMA):
+        self.height = height
+        self.width = width
+        #self.batch_size = batch_size
+        #self.learning_rate = learning_rate
+        self.channel_num = channel_num
+        #self.vgg = VGG19(None, None, None)
         self.LAMBDA = LAMBDA
         self.SIGMA = SIGMA
 
-    def _generator(self, z):
+        self.creat_model()
+
+    def generator(self, z):
         G = Network()
-        #Network._deconv2d(input, output_dim, filter_size, stride)
-        h = tf.nn.relu(G._deconv2d(z, 64, 3, 1))
+        #Network.deconv2d(input, output_dim, filter_size, stride)
+        h = tf.nn.relu(G.deconv2d(z, 64, 3, 1))
         bypass = h
 
-        h = G._residual_block(h, 64, 3, 5)
+        h = G.residual_block(h, 64, 3, 5)
 
-        h = G._deconv2d(h, 64, 3, 1)
-        h = G._batch_norm(h)
+        h = G.deconv2d(h, 64, 3, 1)
+        h = G.batch_norm(h)
         h = tf.add(h, bypass)
 
-        h = G._deconv2d(h, 256, 3, 1)
-        h = G._pixel_shuffle(h, 2, 64)
+        h = G.deconv2d(h, 256, 3, 1)
+        h = G.pixel_shuffle(h, 2, 64)
         h = tf.nn.relu(h)
 
-        h = G._deconv2d(h, 64, 3, 1)
-        h = G._pixel_shuffle(h, 2, 16)
+        h = G.deconv2d(h, 64, 3, 1)
+        h = G.pixel_shuffle(h, 2, 16)
         h = tf.nn.relu(h)
 
-        h = G._deconv2d(h, 3, 3, 1)
+        h = G.deconv2d(h, self.channel_num, 3, 1)
         
-        params = G.weights+G.biases
+        self.G_params = G.weights+G.biases
 
-        return h, params
+        return h
 
-    def _discriminator(self, x):
+    def discriminator(self, x):
         D = Network()
-        #_conv2d(input, output_dim, filter_size, stride, padding='SAME')
-        h = D._conv2d(x, 64, 3, 1)
+        #Network.conv2d(input, output_dim, filter_size, stride, padding='SAME')
+        h = D.conv2d(x, 64, 3, 1)
         h = lrelu(h)
 
-        h = D._conv2d(h, 64, 3, 2)
+        h = D.conv2d(h, 64, 3, 2)
         h = lrelu(h)
-        h = D._batch_norm(h)
+        h = D.batch_norm(h)
 
         map_nums = [128, 256, 512]
 
         for map_num in map_nums:
-            h = D._conv2d(h, map_num, 3, 1)
+            h = D.conv2d(h, map_num, 3, 1)
             h = lrelu(h)
-            h = D._batch_norm(h)
+            h = D.batch_norm(h)
 
-            h = D._conv2d(h, map_num, 3, 2)
+            h = D.conv2d(h, map_num, 3, 2)
             h = lrelu(h)
-            h = D._batch_norm(h)
+            h = D.batch_norm(h)
 
-        h = D._dense(h, 1024)
+        h = D.dense(h, 1024)
         h = lrelu(h)
 
-        h = D._dense(h, 1)
+        h = D.dense(h, 1)
 
-        params = D.weights+D.biases
+        self.D_params = D.weights+D.biases
         
-        return h, params
-    def _downscale(self, x, K):
-        mat = np.zeros([K, K, 3, 3])
-        mat[:, :, 0, 0] = 1.0 / K**2
-        mat[:, :, 1, 1] = 1.0 / K**2
-        mat[:, :, 2, 2] = 1.0 / K**2
+        return h
+    def downscale(self, x, K):
+        mat = np.zeros([K, K, self.channel_num, self.channel_num])
+        for i in range(self.channel_num):
+            mat[:, :, i, i] = 1.0 / K**2
         filter = tf.constant(mat, dtype=tf.float32)
-        return tf.nn.conv2d(x, filter, strides[1, K, K, 1], padding='SAME')
+        return tf.nn.conv2d(x, filter, strides=[1, K, K, 1], padding='SAME')
 
-    def _creat_model(self):
-        self.x = tf.placeholder(
-            tf.float32,
-            [None, self.height, self.width, 3],
-            name='x'
-        )
-        self.z = self._downscale(self.x, 4)
-
-        with tf.variable_scope('generator'):
-            self.g = self._generator(self.z)
-        with tf.variable_scope('discriminator') as scope:
-            self.D_real = self._discriminator(self.x)
-            scope.variable_reuse()
-            self.D_fake = self._discriminator(self.g)
-
-        _, real_phi = self.vgg.build_model(self.x, tf.constant(False), False)
-        _, fake_phi = self.vgg.build_model(self.g, tf.constant(False), True)
+    def vgg19_loss(self, x , g):
+        _, real_phi = self.vgg.build_model(x, tf.constant(False), False)
+        _, fake_phi = self.vgg.build_model(g, tf.constant(False), True)
 
         loss = None
         for i in range(len(real_phi)):
@@ -262,7 +248,27 @@ class SRGAN(object):
             else:
                 loss += l2_loss
 
-        content_loss = reduce_mean(loss)
+        return tf.reduce_mean(loss)
+
+    def reconstruction_loss(self, x, g):
+        return tf.reduce_sum(tf.square(x - g))
+
+    def creat_model(self):
+        self.x = tf.placeholder(
+            tf.float32,
+            [None, self.height, self.width, self.channel_num],
+            name='x'
+        )
+        self.z = self.downscale(self.x, 4)
+
+        with tf.variable_scope('generator'):
+            self.g = self.generator(self.z)
+        with tf.variable_scope('discriminator') as scope:
+            self.D_real = self.discriminator(self.x)
+            scope.variable_reuse()
+            self.D_fake = self.discriminator(self.g)
+
+        content_loss = self.reconstruction_loss(self.x, self.g)
 
         disc_loss = -tf.reduce_mean(self.D_real) + tf.reduce_mean(self.D_fake)
         gen_loss = -tf.reduce_mean(self.D_fake)
@@ -275,13 +281,15 @@ class SRGAN(object):
 
         differences = self.g - self.x
         interpolates = self.x + alpha * differences
-        gradients = tf.gradients(self._discriminator(interpolates), [interpolates])[0]
+        gradients = tf.gradients(self.discriminator(interpolates), [interpolates])[0]
         slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), reduction_indices=[1]))
         gradient_penalty = tf.reduce_mean((slopes - 1.) ** 2)
 
         self.D_loss = self.SIGMA * (disc_loss + self.LAMBDA * gradient_penalty)
 
         self.G_loss = content_loss + self.SIGMA * gen_loss
+
+
 
 
         
