@@ -43,10 +43,9 @@ class Network(object):
 
     def conv2d(self, input, output_dim, filter_size, stride, padding='SAME'):
         with tf.variable_scope('conv'+str(self.layer_num)):
-            input_dim = input.get_shape().as_list()[3]
-            input_shape = tf.shape(input)
+            input_shape = input.get_shape().as_list()
 
-            init_w = he_init([filter_size, filter_size, input_dim, output_dim], stride)
+            init_w = he_init([filter_size, filter_size, input_shape[3], output_dim], stride)
             weight = tf.get_variable(
                 'weight', 
                 initializer=init_w
@@ -72,14 +71,16 @@ class Network(object):
         return output
     def deconv2d(self, input, output_dim, filter_size, stride, padding='SAME'):
         with tf.variable_scope('deconv'+str(self.layer_num)):
-            input_dim = input.get_shape().as_list()[3]
-            input_shape = tf.shape(input)
+            input_shape = input.get_shape().as_list()
+            print(input_shape)
+            print(stride)
 
-            init_w = he_init([filter_size, filter_size, output_dim, input_dim], stride)
+            init_w = he_init([filter_size, filter_size, output_dim, input_shape[3]], stride)
             weight = tf.get_variable(
                 'weight',
                 initializer=init_w
             )
+            print(weight.get_shape())
 
             init_b = tf.zeros([output_dim])
             bias = tf.get_variable(
@@ -91,7 +92,7 @@ class Network(object):
                 value=input,
                 filter=weight,
                 output_shape=tf.stack([
-                    input_shape[0], 
+                    tf.shape(input)[0], 
                     input_shape[1]*stride, 
                     input_shape[2]*stride, 
                     output_dim]
