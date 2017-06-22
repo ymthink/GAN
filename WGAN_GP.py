@@ -119,8 +119,8 @@ class WGAN_GP(object):
         )
 
         differences = self.g - self.x
-        interplates = self.x + alpha * differences
-        gradients = tf.gradients(self._discriminator(interplates), [interplates])[0]
+        interpolates = self.x + alpha * differences
+        gradients = tf.gradients(self._discriminator(interpolates), [interpolates])[0]
         slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), reduction_indices=[1]))
         gradient_penalty = tf.reduce_mean((slopes - 1.) ** 2)
 
